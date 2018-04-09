@@ -35,7 +35,7 @@
 (defvar *default-sensors-data-method* :json
   "The default method used to pull data from lm-sensors.")
 
-(defgeneric fetch-sensors-data (method)
+(defgeneric fetch-sensor-data (method)
   (:documentation "Fetches sensor data and returns an alist tree of data. ")
   (:method :before (method)
 	   (unless *sensors-binary* (find-sensors-binary)))
@@ -45,6 +45,13 @@
 		    *sensors-binary*
 		    *sensors-version*)
 	   :as :alist)))
+
+(defun fetch-default-sensor-data (&optional (method *default-sensors-data-method*))
+  (fetch-sensor-data method))
+
+(defun parse-default-sensor-data (&optional (method *default-sensors-data-method*))
+  "Fetches a parsed alist of data using the default sensors method."
+  (parse-alist-data (fetch-default-sensor-data method)))
 
 (defun parse-alist-data (alist)
   (loop for sensor in alist
