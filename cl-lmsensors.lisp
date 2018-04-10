@@ -32,106 +32,65 @@
 	(sensors "--version"
 		 "Cannot find version string for sensors binary!")))
 
-(defvar *default-sensors-data-method* :json
+(defvar *default-sensors-data-method* nil
   "The default method used to pull data from lm-sensors.")
+
+(defvar *default-sensors-data-methods* ()
+  "A list of registered data methods.")
+
+(defun register-sensors-data-method (method)
+  (push method *default-sensors-data-methods*))
 
 (defgeneric fetch-sensor-data (method)
   (:documentation "Fetches sensor data and returns an alist tree of data. ")
   (:method :before (method)
-	   (unless *sensors-binary* (find-sensors-binary)))
-  (:method ((method (eql :json)))
-    (parse (sensors "-j"
-		    "Failed to access json from ~A.  Does your binary support JSON? '~A'"
-		    *sensors-binary*
-		    *sensors-version*)
-	   :as :alist)))
+	   (unless *sensors-binary* (find-sensors-binary))))
 
-(defun fetch-default-sensor-data (&optional (method *default-sensors-data-method*))
+(defvar *sensors-data-methods-directory*
+  (merge-pathnames "methods/*.*"
+		   (asdf/system:system-source-directory :cl-lmsensors)))
+
+(defun load-sensor-data-methods ()
+  (dolist (file (directory *sensors-data-methods-directory*))
+    (load file)))
+
+(load-sensor-data-methods)
+
+(defun fetch-default-sensor-data (&optional
+				    (method *default-sensors-data-method*))
   (fetch-sensor-data method))
 
-(defun parse-default-sensor-data (&optional (method *default-sensors-data-method*))
+(defun parse-default-sensor-data (&optional
+				    (method *default-sensors-data-method*))
   "Fetches a parsed alist of data using the default sensors method."
-  (parse-alist-data (fetch-default-sensor-data method)))
+  (parse-sensor-data (fetch-default-sensor-data method)))
 
-(defun parse-alist-data (alist)
+(defun parse-sensor-data (alist)
   (loop for sensor in alist
-     collect (parse-sensor-data sensor)))
+     collect (dispatch-sensor-data-parsing sensor)))
 
-(defun parse-sensor-data (sensor-alist)
+(defvar *hardware-table* (make-hash-table :test 'equal)
+  "A table used to map hardware names to parsing methods.")
+
+(defun add-hardware-parsing-method (hardware-name function)
+  "Adds a parsing method as function accepting a single argument
+in the form of an alist and maps it to HARDWARE-NAME."
+  (setf (gethash hardware-name *hardware-table*) function))
+
+(defvar *default-hardware-methods-directory*
+  (merge-pathnames "hardware/*.*"
+		   (asdf/system:system-source-directory :cl-lmsensors)))
+
+(defun load-hardware-parsing-methods ()
+  (loop for file in (directory *default-hardware-methods-directory*)
+     do (load file)))
+
+(load-hardware-parsing-methods)
+
+(defun dispatch-sensor-data-parsing (sensor-alist)
   (labels ((sensor-type (type)
 	     (scan type (car sensor-alist))))
-    (cond ((sensor-type "coretemp-isa")
-	   (parse-coretemp-isa-alist sensor-alist))
-	  ((sensor-type "atk0110-acpi")
-	   (parse-atk0110-acpi-alist sensor-alist))
-	  (t (warn "Unknown sensor data type.  Please add a condition to PARSE-SENSOR-DATA.")))))
-
-(defun parse-coretemp-isa-alist (alist)
-  (cons (car alist)
-	(loop for data-line in (cdr alist)
-	   when (listp (cdr data-line))
-	   collect
-	     (let ((name (car data-line))
-		   crit-alarm
-		   crit
-		   max
-		   input)
-	       (loop for (key . value) in (cdr data-line)
-		  do (cond ((scan "_crit_alarm$" key)
-			    (setf crit-alarm value))
-			   ((scan "_crit$" key)
-			    (setf crit value))
-			   ((scan "_max$" key)
-			    (setf max value))
-			   ((scan "_input$" key)
-			    (setf input value))))
-	       (list name
-		     input
-		     ;; status :ok :warn :critical
-		     (cond ((and input max (<= input max)) :ok)
-			   ((and input crit (<= input crit)) :warn)
-			   ((and input crit (>  input crit)) :critical))
-		     ;; percent of max
-		     (when (and input max (not (zerop max)))
-		       (* 100 (/ input max)))
-		     ;; percent of critical
-		     (when (and input crit (not (zerop crit)))
-		       (* 100 (/ input crit)))
-		     ;; percent of critical alarm.
-		     (when (and input crit-alarm (not (zerop crit-alarm)))
-		       (* 100 (/ input crit-alarm))))))))
-
-(defun parse-atk0110-acpi-alist (alist)
-  (cons (car alist)
-	(loop for data-line in (cdr alist)
-	   when (listp (cdr data-line))
-	   collect
-	     (let ((name (car data-line))
-		   crit
-		   max
-		   min
-		   input)
-	       (loop for (key . value) in (cdr data-line)
-		  do (cond ((scan "_crit$"  key)
-			    (setf crit  value))
-			   ((scan "_max$"   key)
-			    (setf max   value))
-			   ((scan "_input$" key)
-			    (setf input value))
-			   ((scan "_min$"   key)
-			    (setf min   value))))
-	       (list name
-		     input
-		     ;; status :ok :warn or :critical
-		     (cond ((and input max min (<= min input max)) :ok)
-			   ((and input min) (<= input min) :warn)
-			   ((and input max (>= input max) (if crit :warn :critical)))
-			   ((and input crit (>= input crit)) :critical))
-		     ;; percent of max.. or optionally percent between min and max.
-		     (cond ((and min input max (not (zerop (- max min))))
-			    (* 100 (/ (- input min) (- max min))))
-			   ((and input max (not (zerop max)))
-			    (* 100 (/ input max))))
-		     ;; percent of crit
-		     (when (and input crit (not (zerop crit)))
-		       (* 100 (/ input crit))))))))
+    (loop for name being the hash-keys in *hardware-table*
+       using (hash-value function)
+       when (sensor-type name)
+       collect (funcall function sensor-alist))))

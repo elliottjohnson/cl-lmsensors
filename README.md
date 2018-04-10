@@ -91,19 +91,32 @@ currently return the following forms:
 Where Status equals one of :OK, :WARN, or :CRITICAL depending on value.
 %ofMinMax iss equal to ```(* 100 (/ (- value min) (- max min)))```
 
-In the future hopefully I can put more structure to make adding
-new methods and hardware very easy.  Hopefully it provides a
-starting place for further development.
+### Adding New Hardware
+
+Adding new hardware involves creating a new file under the ```hardware/```
+directory.  In this file define a function that accepts an alist of sensor
+data in whatever method provides it and returns a parsed or modified version
+of the data.  You can document the returned form in the ```Parsing Details```
+section above.  Lastly call ADD-HARDWARE-PARSING-METHOD to add the parsing
+method to the list of known hardware types.
+
+### Adding new input methods
+
+Adding new input methods involves creating a new file under the ```methods/```
+directory.  In this file, register a keyword using the function
+REGISTER-SENSORS-DATA-METHOD and extend the generic-function
+```FETCH-SENSOR-DATA``` to use this keyword to fetch data from lm_sensors
+and return the value as an alist of values.  The resulting alist should be
+equal to an alist using the :JSON method (if available for testing).
 
 ### Ideas for the future.
 
 1) sensorsd type data collection running in a thread.
-  * Data Storage: RRDBS?
+     * Data Storage: RRDBS?
 2) Data representation
-  * RRDBS has it's own tools, is there a lisp method (vecto, etc)
+     * RRDBS has it's own tools, is there a lisp method (vecto, etc)
 3) StumpWM modeline with temp information.
-  * Useful when compiling a lot on a poorly cooled machine.
-
+     * Useful when compiling a lot on a poorly cooled machine.
 
 ## License
 
