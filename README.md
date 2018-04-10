@@ -1,74 +1,72 @@
 # cl-lmsensors
 ##### _Elliott Johnson <elliott@elliottjohnson.net>_
 
-CL-LMSENSORS: a utility for interacting with lm_sensor data.
+CL-LMSENSORS: a utility for interacting with 
+[lm_sensors](https://hwmon.wiki.kernel.org/) data.
 
-This library provides a basic means of interacting with
-lm_sensors: https://hwmon.wiki.kernel.org/
-
-It was built against lm_sensors/libsensors version 3.4.0
-with json support.  The FETCH-SENSORS-DATA generic function
+It was built/tested against lm_sensors/libsensors version 3.4.0
+with json support.  The FETCH-SENSOR-DATA generic function
 can be extended to support other input methods besides
 :JSON
 
 ### Exported functions and values
-Variable *SENSORS-BINARY*
+*Variable* **\*SENSORS-BINARY\***
 
-Value Type: string
+**Value Type:**
 
-Initial Value: A path, for example "/usr/bin/sensors"
+a string or nil
 
-Description:
-	The path used to execute the sensors binary.
+**Initial Value:**
+
+Nil or a pathname, for example "/usr/bin/sensors"
+
+**Description:**
+
+The path used to execute the sensors binary.
 It is initially set to the local path by calling
-FIND-SENSORS-BINARY in order to locate it. 
+FIND-SENSORS-BINARY.
 
+*Function* **FETCH-SENSOR-DATA**
 
+**Syntax:**
 
-Function FETCH-SENSOR-DATA
+**fetch-sensor-data** *method-name* => *alist*
 
-Syntax:
-fetch-sensor-data method-name => alist
+**Arguments and Values:**
 
-Arguments and Values: 
+*method-name*::= a symbol (eql :JSON)
+*alist*::= an association list of sensor data.
 
-method-name::= a symbol (eql :JSON)
-
-alist::= an association list of sensor data.
-
-Description:
+**Description:**
 
 Returns an association list containing the
 data returned by a call to *SENSORS-BINARY*.
 
+*Function* **PARSE-ALIST-DATA**
 
+**Syntax:**
 
-Function PARSE-ALIST-DATA
+**parse-alist-data** *alist* => *parsed-alist*
 
-Syntax:
-parse-alist-data alist => parsed-alist
+**Arguments and Values:**
 
-Arguments and Values:
-
-alist::= an association list of sensor data.
-
-parsed-alist::= an list of values, %'s, and status
+*alist*::= an association list of sensor data.  
+*parsed-alist*::= an list of values, %'s, and status
   computed from the sensor data.  The parsing is based
   on hardware type.
 
+*Function* **PARSE-DEFAULT-SENSOR-DATA**
 
+**Syntax:**
 
-Function PARSE-DEFAULT-SENSOR-DATA
+**parse-default-sensor-data** *&optional* *method* => *parsed-alist*
 
-Syntax:
-parse-default-sensor-data &optional method => parsed-alist
+**Arguments and Values:**
 
-Arguments and Values:
-
-method::= a optional keyword for the fetch method.
+*method*::= a optional keyword for the fetch method.
   Currently only accpets :JSON.
 
-Description:
+**Description:**
 
 In an effort to make the data more useable, I have
 included some basic parsing for the following hardware:
@@ -90,8 +88,8 @@ currently return the following forms:
       (<SensorName> <value> <Status> <%ofMinMax> <%ofCrit>)
       ...))
 
-Where Status equals one of :OK, :WARN, :CRITICAL and %ofMinMax
-is equal to ```(* 100 (/ (- value min) (- max min)))```
+Where Status equals one of :OK, :WARN, or :CRITICAL depending on value.
+%ofMinMax iss equal to ```(* 100 (/ (- value min) (- max min)))```
 
 In the future hopefully I can put more structure to make adding
 new methods and hardware very easy.  Hopefully it provides a
