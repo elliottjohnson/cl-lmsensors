@@ -42,11 +42,11 @@ FIND-SENSORS-BINARY.
 Returns an association list containing the
 data returned by a call to *SENSORS-BINARY*.
 
-*Function* **PARSE-ALIST-DATA**
+*Function* **PARSE-SENSOR-DATA**
 
 **Syntax:**
 
-**parse-alist-data** *alist* => *parsed-alist*
+**parse-sensor-data** *alist* => *parsed-alist*
 
 **Arguments and Values:**
 
@@ -78,7 +78,7 @@ Read more in the parsing details below:
 
 ### Parsing details.
 
-Calling PARSE-ALIST-DATA with the fetched sensor data, will
+Calling PARSE-SENSOR-DATA with the fetched sensor data, will
 currently return the following forms:
     
     (("coretemp-isa-####"

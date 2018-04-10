@@ -5,6 +5,6 @@
   (:export #:*sensors-binary*
 	   #:fetch-sensor-data
 	   #:fetch-default-sensor-data
-	   #:parse-alist-data
+	   #:parse-sensor-data
 	   #:parse-default-sensor-data))
 
