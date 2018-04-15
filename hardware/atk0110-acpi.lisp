@@ -1,39 +1,37 @@
 (in-package :cl-lmsensors)
 
-(defun parse-atk0110-acpi-alist (alist)
-  (cons (car alist)
-	(loop for data-line in (cdr alist)
-	   when (listp (cdr data-line))
-	   collect
-	     (let ((name (car data-line))
-		   crit
-		   max
-		   min
-		   input)
-	       (loop for (key . value) in (cdr data-line)
-		  do (cond ((scan "_crit$"  key)
-			    (setf crit  value))
-			   ((scan "_max$"   key)
-			    (setf max   value))
-			   ((scan "_input$" key)
-			    (setf input value))
-			   ((scan "_min$"   key)
-			    (setf min   value))))
-	       (list name
-		     input
-		     ;; status :ok :warn or :critical
-		     (cond ((and input max min (<= min input max)) :ok)
-			   ((and input min) (<= input min) :warn)
-			   ((and input max (>= input max) (if crit :warn :critical)))
-			   ((and input crit (>= input crit)) :critical))
-		     ;; percent of max.. or optionally percent between min and max.
-		     (cond ((and min input max (not (zerop (- max min))))
-			    (* 100 (/ (- input min) (- max min))))
-			   ((and input max (not (zerop max)))
-			    (* 100 (/ input max))))
-		     ;; percent of crit
-		     (when (and input crit (not (zerop crit)))
-		       (* 100 (/ input crit))))))))
+(defclass acpi-voltage (sensor-max-mixin
+			sensor-min-mixin
+			sensor-data)
+  ()
+  (:default-initargs :units 'volts)
+  (:documentation
+   "A general class for all voltages read by acpi hardware."))
 
-(add-hardware-parsing-method "atk0110-acpi"
-			     #'parse-atk0110-acpi-alist)
+(defclass acpi-fan (sensor-max-mixin
+		    sensor-min-mixin
+		    sensor-data)
+  ()
+  (:default-initargs :units 'rpms)
+  (:documentation
+   "A class for all fan speeds read by by acpi hardware."))
+
+(defclass acpi-temp (sensor-critical-mixin
+		     sensor-max-mixin
+		     sensor-data)
+  ()
+  (:default-initargs :units 'celsius)
+  (:documentation
+   "A class for all temperatures read by acpi hardware."))
+
+(defclass atk0110-acpi (fan-mixin
+			voltage-mixin
+			temperature-mixin
+			hardware)
+  ()
+  (:default-initargs 
+    :fan-class 'acpi-fan
+    :voltage-class 'acpi-voltage
+    :temperature-class 'acpi-temp)
+  (:documentation
+   "A class representing the atk0110-apci hardware."))
