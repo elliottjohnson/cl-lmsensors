@@ -20,8 +20,8 @@ TODO - update these for the new codebase.
 
 ### Ideas for the future.
 
-*done* 1) Add an input method for reading RAW data from lm_sensors.
-*done* 2) Expand the supported hardware.
+1) Add an input method for reading RAW data from lm_sensors. *done*
+2) Expand the supported hardware. *done*
 3) StumpWM modeline with temp information.
      * Useful when compiling a lot on a poorly cooled machine.
 4) sensorsd type data collection running in a thread.
