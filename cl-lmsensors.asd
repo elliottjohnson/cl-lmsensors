@@ -4,7 +4,7 @@
   :description "A foreign function interface to libsensors."
   :author "Elliott Johnson <elliott@elliottjohnson.net>"
   :license  "MIT"
-  :version "0.4.0"
+  :version "0.4.1"
   :defsystem-depends-on (#:cffi-grovel)
   :depends-on (#:cl-ppcre #:cffi #:cffi-libffi #:dynamic-mixins)
   :components ((:file "package")
