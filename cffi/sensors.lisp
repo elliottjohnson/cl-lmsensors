@@ -82,7 +82,7 @@ as returned by CFF-SENSORS-GET-FEATURES."
     (setf (mem-aref a :int) 0)
     (loop for feature = (cffi-sensors-get-features chip-pointer a)
        while (and feature (not (pointer-eq feature (null-pointer))))
-       collect (let ((label (sensors-get-label chip-pointer feature)))		 
+       collect (let ((label (sensors-get-label chip-pointer feature)))
 		 (setf (mem-aref b :int) 0)
 		 (list :label label
 		       :subfeatures
@@ -112,7 +112,7 @@ a ffi :double VAL and returns a plist of subfeature values. "
     (unless (and feature (not (pointer-eq feature (null-pointer))))
       (error "Failed to get subfeature for chip: '~A', feature '~A', and type '~A'"
 	     chip-pointer feature type))
-    (with-foreign-object (val :double) 
+    (with-foreign-object (val :double)
       (subfeature-alist chip-pointer subfeature val))))
 
 (defun sensors-get-label (chip-pointer feature)

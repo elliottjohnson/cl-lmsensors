@@ -15,7 +15,7 @@ configuration call SENSORS-CLEANUP before calling SENSORS-INIT again."
   (file :pointer))
 
 (defcfun ("sensors_cleanup" cffi-sensors-cleanup) :void
-  "Clean-up function: You can't access anything after this, until the next 
+  "Clean-up function: You can't access anything after this, until the next
 sensors_init() call!")
 
 (defcfun ("sensors_parse_chip_name" cffi-sensors-parse-chip-name) :int
@@ -30,14 +30,14 @@ sensors_init() call!")
 
 (defcfun ("sensors_snprintf_chip_name" cffi-sensors-snprintf-chip-name) :int
   "Prints a chip name from its internal representation.  Note that chip
-should not contain wildcard values!  Returns the number of characters 
+should not contain wildcard values!  Returns the number of characters
 printed on success (same as snprintf), <0 on error."
   (str :string)
   (size (:pointer size-t))
   (chip (:pointer (:struct sensors-chip-name))))
 
 (defcfun ("sensors_get_adapter_name" cffi-sensors-get-adapter-name) :string
-  "This function returns the adapter name of a bus, as used within the 
+  "This function returns the adapter name of a bus, as used within the
 sensors_chip_name structure. If it could not be found, it returns NULL"
   (bus (:pointer (:struct sensors-bus-id))))
 
@@ -57,8 +57,8 @@ returned structure, you will corrupt internal data structures."
 
 (defcfun ("sensors_get_all_subfeatures" cffi-sensors-get-all-subfeatures) (:pointer (:struct sensors-subfeature))
   "This returns all subfeatures of a given main feature. nr is an internally
-used variable. Set it to zero to start at the begin of the list. If no more 
-features are found NULL is returned.  Do not try to change the returned 
+used variable. Set it to zero to start at the begin of the list. If no more
+features are found NULL is returned.  Do not try to change the returned
 structure; you will corrupt internal data structures."
   (name (:pointer (:struct sensors-chip-name)))
   (feature (:pointer (:struct sensors-feature)))
@@ -66,7 +66,7 @@ structure; you will corrupt internal data structures."
 
 (defcfun ("sensors_get_subfeature" cffi-sensors-get-subfeature)
     (:pointer (:struct sensors-subfeature))
-    "This function returns a subfeature of the given type for a given feature, 
+    "This function returns a subfeature of the given type for a given feature,
 if it exists, NULL otherwise."
   (name (:pointer (:struct sensors-chip-name)))
   (feature (:pointer (:struct sensors-feature)))
@@ -81,7 +81,7 @@ is returned itself."
   (feature (:pointer (:struct sensors-feature))))
 
 (defcfun ("sensors_get_value" cffi-sensors-get-value) :int
-  "Read the value of a subfeature of a certain chip.  Note that chip should 
+  "Read the value of a subfeature of a certain chip.  Note that chip should
 not container wildcard values!  This function will return 0 on success, and
 <0 on failure."
   (name (:pointer (:struct sensors-chip-name)))
