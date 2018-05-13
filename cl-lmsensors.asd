@@ -1,22 +1,21 @@
 ;;;; cl-lmsensors.asd
 
+;; Override the default behavior for dynamic-mixins.. see:
+;;  https://github.com/rpav/dynamic-mixins/issues/1
+(pushnew :disable-mixin-object-print-object cl:*features*)
+
 (asdf:defsystem #:cl-lmsensors
   :description "A foreign function interface to libsensors."
   :author "Elliott Johnson <elliott@elliottjohnson.net>"
   :license  "MIT"
-  :version "0.4.1"
+  :version "0.5.0"
   :defsystem-depends-on (#:cffi-grovel)
   :depends-on (#:cl-ppcre #:cffi #:cffi-libffi #:dynamic-mixins)
+  :serial t
   :components ((:file "package")
-	       (:module "cffi"
-			:serial t
-			:depends-on ("package")
-			:components ((:cffi-grovel-file "grovel")
-				     (:file "libsensors")
-				     (:file "sensors")))
-	       (:module "src"
-			:serial t
-			:depends-on ("package" "cffi")
-			:components ((:file "classes")))))
+	       (:cffi-grovel-file "grovel")
+	       (:file "libsensors")
+	       (:file "sensors")
+	       (:file "cl-lmsensors")))
 
 

@@ -8,6 +8,8 @@
 
 (defcvar "libsensors_version" :string)
 
+(defvar +sensors-chip-name-prefix-any+ (null-pointer))
+
 (defcfun ("sensors_init" cffi-sensors-init) :int
   "Loads the configuration file and the detected chips list.  If this
 returns a value unequal to zero, you are in trouble.  To reload the

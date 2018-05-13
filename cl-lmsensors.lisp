@@ -1,11 +1,13 @@
 (in-package :cl-lmsensors)
 
-;; The model for features.
-
 (defclass chip ()
-  ((name :accessor chip.name :initarg :name :initform nil)
-   (adapter :accessor chip.adapter :initarg :adapter :initform nil)
-   (features :accessor chip.features :initarg :features :initform ())))
+  ((name :accessor chip.name :initarg :name :initform nil
+	 :documentation "The chip name string.")
+   (adapter :accessor chip.adapter :initarg :adapter :initform nil
+	    :documentation "The chip adapter name string.")
+   (features :accessor chip.features :initarg :features :initform ()
+	     :documentation "A list of feature objects for this chip."))
+  (:documentation "A class of objects to represent chip data."))
 
 (defmethod print-object ((chip chip) stream)
   (print-unreadable-object (chip stream :type t :identity t)
@@ -18,16 +20,19 @@
 	(format stream " : ~A" features)))))
 
 (defclass feature ()
-  ((name :accessor feature.name :initarg :label :initform nil)
-   (value :accessor feature.value :initarg :value :initarg nil))
+  ((name :accessor feature.name :initarg :label :initform nil
+	 :documentation "The feature name string.")
+   (value :accessor feature.value :initarg :value :initarg nil
+	  :documentation "A numeric value for this feature."))
   (:documentation
    "A basic feature class.  Includes a VALUE slot accessable by VALUE."))
 
 (defmethod print-object ((feature feature) stream)
-  (print-unreadable-object (feature stream :type t :identity t)
+  (print-unreadable-object (feature stream :identity t)
     (with-accessors ((name feature.name)
 		     (value feature.value))
 	feature
+      (format stream "FEATURE")
       (when name
 	(format stream " ~A" name))
       (when value
@@ -36,25 +41,27 @@
 	       (feature.units feature))
       (format stream " ~A" (feature.units feature)))))
 
-(defun get-detected-chips (&optional chip-name init-file)
+(defun get-detected-chips (&optional chip-name)
   "Returns a list of CHIP objects populated with data from detected chips.
 If CHIP-NAME is specified and as a string, a specific chip will be
 processed.  If CHIP-NAME is a list of strings then the specified
 chips will be processed.  If CHIP-NAME is an empty list (ie. nil)
-then all detected chips will be processed.  INIT-FILE should be a
-path to a libsensors configuration file or null."
-  (assert (or (null chip-name) (stringp chip-name) (and (listp chip-name)
-							(every #'stringp chip-name))))
-  (sensors-init init-file)
+then all detected chips will be processed."
+  (assert (or (null chip-name)
+	      (stringp chip-name)
+	      (and (listp chip-name)
+		   (every #'stringp chip-name))))
   (let ((chips (if (or (null chip-name)
 		       (stringp chip-name))
 		   (sensors-get-detected-chips chip-name)
 		   (mapcar (lambda (chip)
 			     (car (sensors-get-detected-chips chip)))
 			   chip-name))))
-    (loop for chip in chips
-       while chip
-       collect (apply #'make-instance 'chip chip))))
+    (if (null chips)
+	(warn "Failed to fetch any chips.. did you execute (SENSORS-INIT)?")
+	(loop for chip in chips
+	   while chip
+	   collect (apply #'make-instance 'chip chip)))))
 
 (defmethod initialize-instance :after ((chip chip) &key)
   (with-accessors ((features chip.features))
@@ -80,10 +87,13 @@ path to a libsensors configuration file or null."
 					(if (some #'alpha-char-p v)
 					    (intern (string-upcase v))
 					    (parse-integer v))))
-			  (list ,@var-list)))))  ; Tempted to double backtick here ;)
-    (or (grouping-parse (feature number subfeature) "([a-z]+)([0-9]+)_([a-z_]+)")
-	(grouping-parse (feature nil subfeature) "([a-z]+)_([a-z_]+)")
-	(grouping-parse (feature nil nil) "([a-z]+)"))))
+			  (list ,@var-list)))))  ; Tempted to double backtick
+    (or (grouping-parse (feature number subfeature)
+			"([a-z]+)([0-9]+)_([a-z_]+)")
+	(grouping-parse (feature nil subfeature)
+			"([a-z]+)_([a-z_]+)")
+	(grouping-parse (feature nil nil)
+			"([a-z]+)"))))
 
 (defgeneric set-feature-class (feature class)
   (:method (feature identifier)
@@ -95,7 +105,7 @@ path to a libsensors configuration file or null."
 	(parse-feature-string class)
       (declare (ignore n s))
       (set-feature-class feature f)
-      ;; Kluge to work around the fact that we PWMs in a "temp" subfeature.
+      ;; Kluge to work around the fact that PWMs are in a "temp" subfeature.
       (when (scan "auto_point" class)
 	(ensure-mix 'pwm-mixin))))
   (:documentation
@@ -266,6 +276,7 @@ run.")
     (list symbol (accessor-name symbol))))
 
 (defmacro generate-subfeature-mixin (symbol &optional percent)
+  "Creates new mixins and methods for subfeatures."
   `(progn
      (defclass ,(mixin-name symbol) (subfeature-mixin)
        ((,symbol :accessor ,(accessor-name symbol)
@@ -308,86 +319,69 @@ run.")
 
 
 ;; min
-
 (generate-subfeature-mixin min)
 
 ;; lcrit
-
 (generate-subfeature-mixin lcrit)
 
 ;; max
-
 (generate-subfeature-mixin max (value max min))
 
 ;; crit
-
 (generate-subfeature-mixin crit (value crit lcrit))
 
 ;; input -> see default method for feature
-
-(defmethod set-subfeature-data ((feature feature) (name (eql 'input)) (subfeature list))
+(defmethod set-subfeature-data ((feature feature)
+				(name (eql 'input))
+				(subfeature list))
   (setf (feature.value feature) (getf subfeature :value)))
 
-;; average -- does % of average make sense.. or useable?  Maybe to look at deviation from average?
-
+;; average 
 (generate-subfeature-mixin average (value average))
 
 ;; lowest
-
 (generate-subfeature-mixin lowest)
 
 ;; highest
-
 (generate-subfeature-mixin highest (value highest lowest))
 
 ;; reset_history
-
 (generate-subfeature-mixin reset_history)
 
 
 ;; Label 
-
 (generate-subfeature-mixin label)
 
 ;; vid
-
 (generate-subfeature-mixin vid)
 
-
-;; vrm -- TODO test if this would ever be found by parse-feature-string
-
 ;; div - for fams, this is the divisor
-
 (generate-subfeature-mixin div)
 
 ;; pulses -- The number of tachometer pulses per fan revolution.
-
 (generate-subfeature-mixin pulses)
 
 ;; target -- the desired fan speed
-
 (generate-subfeature-mixin target (value target min))
 
 ;; pwm -- who designed this feature!  so many exceptions.
 
 ;; The pwm value is stored in just a pwm[1-*] entry... whaaa?
-(defmethod set-subfeature-data ((feature pwm-mixin) (name null) (subfeature list))
+(defmethod set-subfeature-data ((feature pwm-mixin)
+				(name null)
+				(subfeature list))
   (setf (feature.value feature) (getf subfeature :value)))
 
 ;; Enable -- 0 = No fan control, 1 = manual, 2+ = auto enabled -- todo make this nicer.
-
 (generate-subfeature-mixin enable)
 
 ;; mode -- 0 = DC mode, 1 = PWM mode
-
 (generate-subfeature-mixin mode)
 
 ;; freq
-
 (generate-subfeature-mixin freq)
 
 ;; auto-channels-temp
-
 (generate-subfeature-mixin auto_channels_temp)
 
 ;; auto_point is handled in the around method due to needed a string to parse.
@@ -398,105 +392,82 @@ run.")
 ;;                         4 = thermistor
 ;;                         5 = AMD AMDSI
 ;;                         6 = Intel PECI
-
 (generate-subfeature-mixin type)
 
 ;; min_hyst 
-
 (generate-subfeature-mixin min_hyst)
 
 ;; max_hyst 
-
 (generate-subfeature-mixin max_hyst (value max_hyst min_hyst))
 
 ;; lcrit_hyst
-
 (generate-subfeature-mixin lcrit_hyst)
 
 ;; crit_hyst
-
 (generate-subfeature-mixin crit_hyst (value crit_hyst lcrit_hyst))
 
 ;; emergency
-
 (generate-subfeature-mixin emergency)
 
 ;; emergency_hyst
-
 (generate-subfeature-mixin emergency_hyst (value emergency_hyst lcrit_hyst))
 
 ;; average_interval
-
 (generate-subfeature-mixin average_interval)
 
 ;; average_interval_min
-
 (generate-subfeature-mixin average_interval_min)
 
 ;; average_interval_max
-
 (generate-subfeature-mixin average_interval_max
-			   (average_interval average_interval_max average_interval_min))
+			   (average_interval
+			    average_interval_max
+			    average_interval_min))
 
 ;; average_lowest
-
 (generate-subfeature-mixin average_lowest)
 
 ;; average_highest
-
 (generate-subfeature-mixin average_highest
-			   (value average_highest average_lowest))
+			   (average average_highest average_lowest))
 
 ;; average_min
-
 (generate-subfeature-mixin average_min)
 
 ;; average max
-
 (generate-subfeature-mixin average_max (average average_max average_min))
 
 ;; input_lowest
-
 (generate-subfeature-mixin input_lowest)
 
 ;; input_highest
-
 (generate-subfeature-mixin input_highest (value input_highest input_lowest))
 
 ;; accuracy
-
 (generate-subfeature-mixin accuracy)
 
 ;; cap
-
 (generate-subfeature-mixin cap)
 
 ;; cap_hyst
-
 (generate-subfeature-mixin cap_hyst)
 
 ;; cap_min
-
 (generate-subfeature-mixin cap_min)
 
 ;; cap_max
-
 (generate-subfeature-mixin cap_max (cap cap_max cap_min))
 
 ;; alarm
-
 (generate-subfeature-mixin alarm)
 
 ;; min_alarm
-
 (generate-subfeature-mixin min_alarm)
 
 ;; max_alarm
-
 (generate-subfeature-mixin max_alarm (alarm max_alarm min_alarm))
 
 ;; lcrit_alarm
-
 (generate-subfeature-mixin lcrit_alarm)
 
 ;; crit_alarm
@@ -509,9 +480,20 @@ run.")
 (generate-subfeature-mixin emergency_alarm)
 
 ;; fault
-
 (generate-subfeature-mixin fault)
 
 ;; beep
-
 (generate-subfeature-mixin beep)
+
+(defun find-chip-feature (chip-list chip-name feature-name)
+  "Accepts a list of chips and returns a feature that has FEATURE-NAME
+and is part of CHIP-NAME or nil otherwise."
+  (let ((chip (find-if (lambda (c)
+			 (string-equal (chip.name c) chip-name))
+		       chip-list)))
+    (when chip
+      (find-if (lambda (f)
+		 (string-equal (feature.name f) feature-name))
+	       (chip.features chip)))))
+
+
