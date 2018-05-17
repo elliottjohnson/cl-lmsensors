@@ -76,8 +76,8 @@
    #:feature.units
    ;; Other feature accessors are built and exported dynamically.
   
-   #:get-detected-chip
-   #:find-chip-feature
+   #:get-detected-chips  ; main function to call
+   #:find-chip-feature   ; a way of selecting a chip feature.
    
    ;; Feature mixins
    #:lmsensors-mixin
@@ -95,5 +95,3 @@
 
    ;; Extras
    #:with-foreign-file-pointer))
-
-

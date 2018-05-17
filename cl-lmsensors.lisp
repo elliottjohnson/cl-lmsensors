@@ -97,14 +97,14 @@ then all detected chips will be processed."
 
 (defgeneric set-feature-class (feature class)
   (:method (feature identifier)
-    (error "Failed to find a feature-class '~A' based on subfeature: '~A'."
-	   feature
+    (error "Failed to find a feature-class '' based on subfeature: '~A'."
+	   ;feature
 	   identifier))
   (:method (feature (class string))
     (destructuring-bind (f n s)
 	(parse-feature-string class)
       (declare (ignore n s))
-      (set-feature-class feature f)
+      (set-feature-class feature (symbol-keyword f))
       ;; Kluge to work around the fact that PWMs are in a "temp" subfeature.
       (when (scan "auto_point" class)
 	(ensure-mix 'pwm-mixin))))
@@ -121,7 +121,9 @@ then all detected chips will be processed."
     (destructuring-bind (f n s)
 	(parse-feature-string name)
       (declare (ignore f n))
-      (set-subfeature-data feature s subfeature)))
+      (set-subfeature-data feature
+			   (symbol-keyword s)
+			   subfeature)))
   (:documentation
    "A generic fuction to set a feature's subfeature data."))
 
@@ -160,11 +162,11 @@ run.")
 ;; Several subfeatures for voltage "in", "cpu", and "vrm"
 
 ;; I wish there was an (or (eql 'symbol1) (eql 'symbol2)) style allowed.
-(defmethod set-feature-class ((feature feature) (class (eql 'in)))
+(defmethod set-feature-class ((feature feature) (class (eql :in)))
   (ensure-mix feature 'voltage-mixin))
-(defmethod set-feature-class ((feature feature) (class (eql 'cpu)))
+(defmethod set-feature-class ((feature feature) (class (eql :cpu)))
   (set-feature-class feature 'in))
-(defmethod set-feature-class ((feature feature) (class (eql 'vrm)))
+(defmethod set-feature-class ((feature feature) (class (eql :vrm)))
   (set-feature-class feature 'in))
 
 ;; Fan rpms
@@ -173,7 +175,7 @@ run.")
   ((units :initform  'revolution/min))
   (:documentation "A mixin for handing cooling fan sensors"))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'fan)))
+(defmethod set-feature-class ((feature feature) (class (eql :fan)))
   (ensure-mix feature 'fan-mixin))
 
 ;; PWM for fan control
@@ -182,7 +184,7 @@ run.")
   ()
   (:documentation "A mixin for handling pulse width modulation."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'pwm)))
+(defmethod set-feature-class ((feature feature) (class (eql :pwm)))
   (ensure-mix feature 'pwm-mixin))
 
 ;; Temperature
@@ -191,7 +193,7 @@ run.")
   ((units :initform 'celsius))
   (:documentation "A mixin for handling temperature sensors."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'temp)))
+(defmethod set-feature-class ((feature feature) (class (eql :temp)))
   (ensure-mix feature 'temperature-mixin))
 
 ;; Current
@@ -200,7 +202,7 @@ run.")
   ((units :initform 'amps))
   (:documentation "A mixin for handling current sensors."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'curr)))
+(defmethod set-feature-class ((feature feature) (class (eql :curr)))
   (ensure-mix feature 'current-mixin))
 
 ;; Power
@@ -209,7 +211,7 @@ run.")
   ((units :initform 'watt))
   (:documentation "A mixin for handling power sensors."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'power)))
+(defmethod set-feature-class ((feature feature) (class (eql :power)))
   (ensure-mix feature 'power-mixin))
 
 ;; Energy
@@ -218,7 +220,7 @@ run.")
   ((units :initform 'joule))
   (:documentation "A mixin for handling energy sensors."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'energy)))
+(defmethod set-feature-class ((feature feature) (class (eql :energy)))
   (ensure-mix feature 'energy-mixin))
 
 ;; Humidity
@@ -227,7 +229,7 @@ run.")
   ((units :initform 'percent))
   (:documentation "A mixin for handling humidity sensors."))
 
-(defmethod set-feature-class ((feature feature) (class (eql 'humidity)))
+(defmethod set-feature-class ((feature feature) (class (eql :humidity)))
   (ensure-mix feature 'humidity-mixin))
 
 ;; alarms
@@ -242,7 +244,7 @@ run.")
 ;; "_fault$"
 ;; "_beep$"
 
-(defmethod set-feature-class ((feature feature) (class (eql 'beep)))
+(defmethod set-feature-class ((feature feature) (class (eql :beep)))
    (ensure-mix feature 'alarm-class))  ; The only alarm that does not match a subfeature.
 
 ;;  Not supporting old alarm bitmasks or beep_masks... sorry, should be easy to add if needed.
@@ -273,7 +275,10 @@ run.")
     (intern (concatenate 'string (symbol-name symbol) "%")))
   
   (defun percent-var (symbol)
-    (list symbol (accessor-name symbol))))
+    (list symbol (accessor-name symbol)))
+
+  (defun symbol-keyword (symbol)
+    (intern (symbol-name symbol) 'keyword)))
 
 (defmacro generate-subfeature-mixin (symbol &optional percent)
   "Creates new mixins and methods for subfeatures."
@@ -289,7 +294,7 @@ run.")
      ,@(when percent
 	 `((export ',(accessor-name symbol))))
      (defmethod set-subfeature-data ((feature feature)
-				     (name (eql ',symbol))
+				     (name (eql ',(symbol-keyword symbol)))
 				     (subfeature list))
        (ensure-mix feature ',(mixin-name symbol))
        (setf (,(accessor-name symbol) feature) (getf subfeature :value)))
@@ -332,7 +337,7 @@ run.")
 
 ;; input -> see default method for feature
 (defmethod set-subfeature-data ((feature feature)
-				(name (eql 'input))
+				(name (eql :input))
 				(subfeature list))
   (setf (feature.value feature) (getf subfeature :value)))
 
@@ -495,5 +500,3 @@ and is part of CHIP-NAME or nil otherwise."
       (find-if (lambda (f)
 		 (string-equal (feature.name f) feature-name))
 	       (chip.features chip)))))
-
-
