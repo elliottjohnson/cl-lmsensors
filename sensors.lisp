@@ -156,7 +156,16 @@ the SENSORS-CHIP-NAME structure.  If it could not be found, it returns nil."
 			 '(:struct sensors-chip-name)
 			 'bus)))
 
-(defun sensors-get-detected-chips (&optional name-string)
+(defun not-null-pointer-p (pointer)
+  "An internal function that returns true if POINTER is a foreign-pointer
+and is not equal to NULL-POINTER."
+  (assert (or (null pointer) (typep pointer 'foreign-pointer)))
+  (and pointer (not (pointer-eq pointer (null-pointer)))))
+
+(defun sensors-get-detected-chips (&key name-string
+				     (chip-function #'chip-alist)
+				     (feature-function #'feature-alist)
+				     (subfeature-function #'subfeature-alist))
   "Returns an alist of detected chips that match an optional NAME-STRING.  
 If NAME-STRING is null, then all detected chips are returned."
   (assert (or (null name-string) (stringp name-string)))
@@ -165,44 +174,55 @@ If NAME-STRING is null, then all detected chips are returned."
     (setf (mem-aref nr :int) 0)
     (with-parsed-chip-name (chip-pointer name name-string)
       (loop for chip = (cffi-sensors-get-detected-chips chip-pointer nr)
-	 while (not (or (null chip) (pointer-eq chip (null-pointer))))
-	 collect (list
-		  :name (sensors-get-chip-name chip)
-		  :adapter (sensors-get-adapter-name chip)
-		  :features (sensors-get-features chip))))))
+	 while (not-null-pointer-p chip)
+	 collect (funcall chip-function
+			  chip
+			  (sensors-get-features
+			   chip
+			   :feature-function feature-function
+			   :subfeature-function subfeature-function))))))
 
-(defun not-null-pointer-p (pointer)
-  "An internal function that returns true if POINTER is a foreign-pointer
-and is not equal to NULL-POINTER."
-  (assert (or (null pointer) (typep pointer 'foreign-pointer)))
-  (and pointer (not (pointer-eq pointer (null-pointer)))))
+(defun chip-alist (chip features)
+  "An internally used function to create an alist to represent CHIP."
+  (list :name (sensors-get-chip-name chip)
+	:adapter (sensors-get-adapter-name chip)
+	:features features))
 
-(defun sensors-get-features (sensors-chip-name)
+(defun sensors-get-features (sensors-chip-name
+			     &key (feature-function #'feature-alist)
+			       (subfeature-function #'subfeature-alist))
   "Returns an alist of all main features for foreign struct 
 SENSORS-CHIP-NAME."
   (with-foreign-object (a :int)
     (setf (mem-aref a :int) 0)
     (loop for feature = (cffi-sensors-get-features sensors-chip-name a)
        while (not-null-pointer-p feature)
-       collect (list :label (sensors-get-label sensors-chip-name feature)
-		     :subfeatures (sensors-get-all-subfeatures
-				   sensors-chip-name
-				   feature)))))
+       collect (funcall feature-function
+			sensors-chip-name
+			feature
+			(sensors-get-all-subfeatures sensors-chip-name
+						     feature
+						     subfeature-function)))))
+
+(defun feature-alist (sensors-chip-name feature subfeatures)
+  "An internally used function to create an alist to represent FEATURE."
+  (list :label (sensors-get-label sensors-chip-name feature)
+	:subfeatures subfeatures))
 
 (defun sensors-get-label (sensors-chip-name feature)
   "Looks up the label which belongs to foreign struct FEATURE of struct 
 SENSORS-CHIP-NAME.  Note that SENSORS-CHIP-NAME should not be based on
 parsing wildcard string names!  On failure nil is returned.  If no label 
 exists for this feature, its name is returned."
+  ;; TODO if returns nil, I think a condition should occur.
   (cffi-sensors-get-label sensors-chip-name feature))
 
 (defun sensors-get-all-subfeatures (sensors-chip-name
 				    feature
 				    &optional (function #'subfeature-alist))
   "Returns an alist of subfeatures of a given foreign FEATURE struct.  
-VAL is an internally used foreign :DOUBLE.  SENSORS-CHIP-NAME is 
-also an internally used foreign struct.  FUNCTION is a function 
-that accepts a SENSORS-CHIP-NAME object and a FEATURE object & 
+SENSORS-CHIP-NAME is an internally used foreign struct.  FUNCTION is a 
+function that accepts a SENSORS-CHIP-NAME object and a FEATURE object & 
 should return a value to be collected by SENSORS-GET-ALL-SUBFEATURES."
   (assert (and (typep sensors-chip-name 'foreign-pointer)
 	       (typep feature 'foreign-pointer)
@@ -217,17 +237,15 @@ should return a value to be collected by SENSORS-GET-ALL-SUBFEATURES."
 
 (defun subfeature-alist (sensors-chip-name subfeature)
   "An internally used function to parse and group subfeatures into an alist."
-  (with-foreign-object (val :double)
-    (with-foreign-slots ((name number type mapping flags)
-			 subfeature
-			 (:struct sensors-subfeature))
-      (sensors-get-value sensors-chip-name number val)
-      (list :name name
-	    :number number
-	    :type type
-	    :mapping mapping
-	    :flags flags
-	    :value (mem-aref val :double)))))
+  (with-foreign-slots ((name number type mapping flags)
+		       subfeature
+		       (:struct sensors-subfeature))
+    (list :name name
+	  :number number
+	  :type type
+	  :mapping mapping
+	  :flags flags
+	  :value (sensors-get-value sensors-chip-name number))))
 
 (define-condition sensors-subfeature-error (sensors-error)
   ((chip :initarg :chip :reader chip
@@ -250,10 +268,10 @@ should return a value to be collected by SENSORS-GET-ALL-SUBFEATURES."
   (:documentation
    "A condition created when getting a subfeature type from a feature."))
 
-(defun sensors-get-subfeature (sensors-chip-name feature type)
-  "Returns an alist of a subfeature of given subfeature TYPE for foreign
-SENSORS-CHIP-NAME struct.  See the SENSORS-SUBFEATURE-TYPE foreign 
-enumeration for subfeature types."
+(defun sensors-get-subfeature (sensors-chip-name feature type
+			       &optional (function #'subfeature-alist))
+  "Returns a subfeature of a given TYPE for foreign SENSORS-CHIP-NAME struct.  
+See the SENSORS-SUBFEATURE-TYPE foreign enumeration for subfeature types."
   (let ((subfeature (cffi-sensors-get-subfeature sensors-chip-name
 						 feature
 						 type)))
@@ -262,19 +280,20 @@ enumeration for subfeature types."
 	     :chip sensors-chip-name
 	     :feature feature
 	     :type type))
-    (subfeature-alist sensors-chip-name subfeature)))
+    (funcall function sensors-chip-name subfeature)))
 
-(defun sensors-get-value (sensors-chip-name subfeature-type val)
+(defun sensors-get-value (sensors-chip-name subfeature-type)
   "Reads the value of a subfeature of a foreign SENSORS-CHIP-NAME of 
-SUBFEATURE-TYPE into VAL which should be a foreign :DOUBLE value.."
-  (let ((err (cffi-sensors-get-value sensors-chip-name subfeature-type val)))
-    (unless (zerop err)
-      (error 'sensors-subfeature-error
-	     :chip sensors-chip-name
-	     :feature subfeature-type
-	     :value val
-	     :return-value err))
-    (mem-aref val :double)))
+SUBFEATURE-TYPE and returns the value as a float."
+  (with-foreign-object (val :double)
+    (let ((err (cffi-sensors-get-value sensors-chip-name subfeature-type val)))
+      (unless (zerop err)
+	(error 'sensors-subfeature-error
+	       :chip sensors-chip-name
+	       :feature subfeature-type
+	       :value val
+	       :return-value err))
+      (mem-aref val :double))))
 
 (define-condition sensors-set-subfeature-value-error (sensors-subfeature-error)
   ((value :initarg :value :initform nil :reader value
@@ -289,7 +308,7 @@ SUBFEATURE-TYPE into VAL which should be a foreign :DOUBLE value.."
   (:documentation "An error regarding the setting a subfeature value."))
 
 (defun sensors-set-value (sensors-chip-name subfeature-type value)
-  "Sets the value of SUBFEATURE-TYPE of a certain SENSORS-CHIP-NAME struct
+  "Sets the value of SUBFEATURE-TYPE of a SENSORS-CHIP-NAME struct
 to VALUE.  SUBFEATURE-TYPE is an integer value belonging to the foreign 
 SENSORS-SUBFEATURE-TYPE enumeration."
   (assert (and (typep sensors-chip-name 'foreign-pointer)

@@ -1,7 +1,7 @@
 (in-package :cl-lmsensors)
 
 (define-foreign-library libsensors
-  (:unix (:or "libsensors.so.4" "libsensors.so"))
+  (:linux (:or "libsensors.so.4" "libsensors.so"))
   (t (:default "libsensors.so")))
 
 (use-foreign-library libsensors)

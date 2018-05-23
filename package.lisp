@@ -15,22 +15,6 @@
    #:*libsensors-version*
    #:*lm-sensors-config-filename*
 
-   #:+sensors-api-version+ ; in octal
-   #:+sensors-chip-name-prefix-any+
-   #:+sensors-chip-name-address-any+
-
-   #:+sensors-bus-type-any+
-   #:+sensors-bus-type-i2c+
-   #:+sensors-bus-type-isa+
-   #:+sensors-bus-type-pci+
-   #:+sensors-bus-type-spi+
-   #:+sensors-bus-type-virtual+
-   #:+sensors-bus-type-acpi+
-   #:+sensors-bus-type-hid+
-   #:+sensors-bus-type-mdio+
-   #:+sensors-bus-nr-any+
-   #:+sensors-bus-nr-ignore+
-
    #:sensors-bus-id
    #:sensors-chip-name
 

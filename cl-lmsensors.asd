@@ -1,9 +1,5 @@
 ;;;; cl-lmsensors.asd
 
-;; Override the default behavior for dynamic-mixins.. see:
-;;  https://github.com/rpav/dynamic-mixins/issues/1
-(pushnew :disable-mixin-object-print-object cl:*features*)
-
 (asdf:defsystem #:cl-lmsensors
   :description "A foreign function interface to libsensors."
   :author "Elliott Johnson <elliott@elliottjohnson.net>"

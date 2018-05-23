@@ -4,7 +4,8 @@
 
 (constant (+sensors-api-version+ "SENSORS_API_VERSION"))
 
-;(constant (+sensors-chip-name-prefix-any+ "SENSORS_CHIP_NAME_PREFIX_ANY")) this is a null pointer and only nums are supported
+;; This is a null pointer and only nums are supported by cffi
+;(constant (+sensors-chip-name-prefix-any+ "SENSORS_CHIP_NAME_PREFIX_ANY")) 
 (constant (+sensors-chip-name-address-any+ "SENSORS_CHIP_NAME_ADDR_ANY"))
 
 (constant (+sensors-bus-type-any+ "SENSORS_BUS_TYPE_ANY"))
